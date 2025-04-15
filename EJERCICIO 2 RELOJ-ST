@@ -1,0 +1,217 @@
+//MILSZTAIN_PAVLICICH_SABIN_ALVAREZ
+
+//LIBRERIAS
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <DHT.h>
+#include <ESP32Time.h>
+#include <WiFi.h>
+#include "time.h"
+
+
+//ESTADOS
+int ESTADORELOJ = 1;
+#define PANTALLA1 1
+#define PANTALLA2 2
+#define ESTADO_ON 3
+#define ESTADO_SW1 4
+#define ESTADO_SW2 5
+#define ON_2 6
+
+//VARIABLES
+int segs = 0;
+int mins = 0;
+int horas = 0;
+
+//BOTONES
+#define SWHORAMAS 34 //switch de aumento de horas
+int valmas;
+
+#define SWHORAMENOS 35 //switch de aumento de minutos
+int valmenos;
+
+//PANTALLA
+#define LONGITUD 128 // longitud
+#define ALTURA 64 // altura
+Adafruit_SSD1306 display(LONGITUD, ALTURA, &Wire, -1);
+
+//SENSOR DE TEMPERATURA
+#define DHTPIN 23
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+//HORA ONLINE (recibida de internet)
+const char* ssid = "ORT-IoT";
+const char* password = "NuevaIOT$25";
+const char* ntpServer = "pool.ntp.org";
+
+const long gmtOffset_sec = 0;
+const int daylightOffset_sec = 3600;
+
+void setup() 
+{
+  Serial.begin(9600);
+  Serial.println("iniciado");
+
+  pinMode(SWHORAMAS, INPUT);
+  pinMode(SWHORAMENOS, INPUT);
+
+  dht.begin(); //inicializa en sensor de temperatura
+
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C); //inicializa el display
+
+  //Cominezo de la integración del WIFI
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) 
+  {
+    delay(500);
+    Serial.print("-");
+  }
+  Serial.println("WiFi conectado");
+  
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+
+}
+
+void loop() 
+{
+  //Se llama a la funcion recibirtiempo
+  recibirtiempo();
+
+  //Se lee la temperatura (en celcious)
+  float temp = dht.readTemperature();
+
+  //Se leen los botones
+  valmas = digitalRead(SWHORAMAS);
+  valmenos = digitalRead(SWHORAMENOS);
+
+  switch (ESTADORELOJ)
+  {
+
+    case PANTALLA1: //PANTALLA QUE MUESTRA TIEMPO Y TEMPERATURA
+    
+    //DISPLAY DE HORA Y TEMPERATURA
+    display.clearDisplay(); //Se reinicia el display
+    display.setTextSize(2); //Establece el tamaño de texto
+    display.setTextColor(WHITE);
+    
+    display.setCursor(0, 10);
+    display.println(horas); //display de horas
+    display.setCursor(40, 10);
+    display.println(mins); //display de minutos
+    display.setCursor(80, 10); 
+    display.println(segs); //display de horas
+    
+    display.setCursor(0,40);
+    display.println(temp);
+
+    display.display(); //Muestra el display
+
+    //CAMBIO DE ESTADO
+    if (valmas == 0 && valmenos == 0) //SI LOS DOS BOTONES SE PRESIONAN
+    {
+      ESTADORELOJ = ESTADO_ON; //SE CAMBIA A ESTADO_ON
+    }
+    break; 
+
+
+    case ESTADO_ON: //PARA CAMBIAR ENTRE PANTALLAS
+    
+    //CAMBIO DE ESTADO
+    if (valmas == 1 && valmenos == 1) //SI LOS DOS BOTONES SE SUELTAN
+    {
+      ESTADORELOJ = PANTALLA2; //SE CAMBIA A PANTALLA2
+    }
+    break;
+
+
+    case PANTALLA2:
+  
+    //DISPLAY DE REGULACION DE TIEMPO
+    display.clearDisplay(); //Se reinicia el display
+    display.setTextSize(2); //Establece el tamaño de texto
+    display.setTextColor(WHITE);
+    
+    display.setCursor(0, 0);
+    display.println("SW1: HORA+");
+
+    display.setCursor(0, 20);
+    display.println("SW2: HORA-");
+
+    display.setCursor(0, 50);
+    display.println("HORA:");
+    display.setCursor(110, 50);
+    display.println(horas); //display de regulador de minutos
+
+    display.display(); //Muestra el display
+
+    //BOTONES DE REGULACION
+    if (valmas == 0)
+    {
+      ESTADORELOJ = ESTADO_SW1; //se cambia a ESTADO_SW1
+    }
+
+    //BOTONES DE REGULACION
+    if (valmenos == 0)
+    {
+      ESTADORELOJ = ESTADO_SW2; //se cambia a ESTADO_SW2
+    }
+    break;
+
+
+    case ESTADO_SW1:
+
+    if (valmas == 1)
+    {
+      horas = horas + 1;
+      ESTADORELOJ = PANTALLA2;
+    }
+
+    if (valmas == 0 && valmenos == 0) //SI LOS DOS BOTONES SE PRESIONAN
+    {
+      ESTADORELOJ = ON_2; //SE CAMBIA A ESTADO ON_2
+    }
+    break;
+
+
+    case ESTADO_SW2:
+
+    if (valmenos == 1)
+    {
+      horas = horas - 1;
+      ESTADORELOJ = PANTALLA2;
+    }
+
+    if (valmas == 0 && valmenos == 0) //SI LOS DOS BOTONES SE PRESIONAN
+    {
+      ESTADORELOJ = ON_2; //SE CAMBIA A ESTADO ON_2
+    }
+    break;
+
+
+    case ON_2:
+
+    if (valmas == 1 && valmenos == 1) //SI LOS DOS BOTONES SE SUELTAN
+    {
+      ESTADORELOJ = PANTALLA1; //SE CAMBIA A ESTADO PANTALLA1
+    }
+    break;
+
+  }
+}
+
+void recibirtiempo()
+{
+  struct tm timeinfo; //Se llama a la hora online
+  
+  if (!getLocalTime(&timeinfo)) { //Se determina si la hora recibida es correcta
+    Serial.println("Hora incorrecta");
+    return;
+  }
+
+  //Los valores recibidos se asignan a sus variables
+  segs = timeinfo.tm_sec;
+  mins = timeinfo.tm_min;
+  horas = timeinfo.tm_hour;
+}
