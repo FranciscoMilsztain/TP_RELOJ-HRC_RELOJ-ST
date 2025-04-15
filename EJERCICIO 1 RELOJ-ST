@@ -53,7 +53,7 @@ void setup()
 
 void loop() 
 { 
-  //hora();
+  hora();
 
   //Se lee la temperatura (en celcious)
   float temp = dht.readTemperature();
@@ -99,9 +99,9 @@ void loop()
     
     display.setCursor(0, 10);
     display.println(horas); //display de horas
-    display.setCursor(20, 10);
-    display.println(mins); //display de minutos
     display.setCursor(40, 10);
+    display.println(mins); //display de minutos
+    display.setCursor(80, 10);
     display.println(segs); //display de horas
 
     display.setCursor(0,40);
@@ -203,6 +203,12 @@ void loop()
 
 void hora()
 {
+  Serial.print("min: ");
+  Serial.println(valmin);
+
+  Serial.print("hora:");
+  Serial.println(valhora);
+
   //segs
   Serial.print("segs: ");
   Serial.println(segs);
