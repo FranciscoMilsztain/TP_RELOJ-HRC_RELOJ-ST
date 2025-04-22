@@ -24,6 +24,8 @@ int segs = 0;
 int mins = 0;
 int horas = 0;
 
+int GMTvariable = 0;
+
 //BOTONES
 #define SWHORAMAS 34 //switch de aumento de horas
 int valmas;
@@ -46,12 +48,12 @@ const char* ssid = "ORT-IoT";
 const char* password = "NuevaIOT$25";
 const char* ntpServer = "pool.ntp.org";
 
-const long gmtOffset_sec = 0;
-const int daylightOffset_sec = 3600;
+int long gmtOffset_sec = -10800; //ESTA VARIABLE VA A DICTAR EL DESFASAJE DE HORAS (comienza en -10800, lo cual es GMT-3, la hora Argentina)
+const int daylightOffset_sec = 0;
 
 void setup() 
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println("iniciado");
 
   pinMode(SWHORAMAS, INPUT);
@@ -140,9 +142,9 @@ void loop()
     display.println("SW2: HORA-");
 
     display.setCursor(0, 50);
-    display.println("HORA:");
-    display.setCursor(110, 50);
-    display.println(horas); //display de regulador de minutos
+    display.println("GMT:");
+    display.setCursor(60, 50);
+    display.println(GMTvariable); //display de regulador de minutos
 
     display.display(); //Muestra el display
 
@@ -160,12 +162,17 @@ void loop()
     break;
 
 
-    case ESTADO_SW1:
+    case ESTADO_SW1: //SE LLAMA A ESTE ESTADO CUANDO EL BOTON 1 ES PRESIONADO EN LA PANTALLA 2
 
     if (valmas == 1)
     {
-      horas = horas + 1;
-      ESTADORELOJ = PANTALLA2;
+      if (GMTvariable < 12) //Si la variable de desfasaje de hora es menor a doce (< 12)
+      {
+        GMTvariable = GMTvariable + 1; //Se le suma 1 a la variable de desfasaje
+        gmtOffset_sec = GMTvariable * 3600; //SE CONVIERTEN LOS VALORES DE GMT (QUE VAN DE -12 A 12) a los valores necesarios de gmtOffset_sec (*3600)
+        
+        ESTADORELOJ = PANTALLA2; //Se vuelve a la pantalla 2
+      }
     }
 
     if (valmas == 0 && valmenos == 0) //SI LOS DOS BOTONES SE PRESIONAN
@@ -175,12 +182,17 @@ void loop()
     break;
 
 
-    case ESTADO_SW2:
+    case ESTADO_SW2: //SE LLAMA A ESTE ESTADO CUANDO EL BOTON 2 ES PRESIONADO EN LA PANTALLA 2
 
     if (valmenos == 1)
     {
-      horas = horas - 1;
-      ESTADORELOJ = PANTALLA2;
+      if (GMTvariable > -12) //Si la variable de desfasaje de hora es mayor a menos doce (> -12)
+      {
+        GMTvariable = GMTvariable - 1; //Se le resta 1 a la variable de desfasaje
+        gmtOffset_sec = GMTvariable * 3600; //SE CONVIERTEN LOS VALORES DE GMT (QUE VAN DE -12 A 12) a los valores necesarios de gmtOffset_sec (*3600)
+
+        ESTADORELOJ = PANTALLA2; //Se vuelve a la pantalla 2
+      }
     }
 
     if (valmas == 0 && valmenos == 0) //SI LOS DOS BOTONES SE PRESIONAN
@@ -194,6 +206,7 @@ void loop()
 
     if (valmas == 1 && valmenos == 1) //SI LOS DOS BOTONES SE SUELTAN
     {
+      configTime(gmtOffset_sec, daylightOffset_sec, ntpServer); //Al volver a la pantalla 1, se reconfigura el reloj con el nuevo GMT
       ESTADORELOJ = PANTALLA1; //SE CAMBIA A ESTADO PANTALLA1
     }
     break;
@@ -206,7 +219,7 @@ void recibirtiempo()
   struct tm timeinfo; //Se llama a la hora online
   
   if (!getLocalTime(&timeinfo)) { //Se determina si la hora recibida es correcta
-    Serial.println("Hora incorrecta");
+    Serial.println("La hora no ha podido ser reconocida");
     return;
   }
 
@@ -214,4 +227,7 @@ void recibirtiempo()
   segs = timeinfo.tm_sec;
   mins = timeinfo.tm_min;
   horas = timeinfo.tm_hour;
+
+  // Mostrar
+  Serial.printf("Hora actual: %02d:%02d:%02d\n", horas, mins, segs);
 }
