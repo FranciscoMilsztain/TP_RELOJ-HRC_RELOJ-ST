@@ -24,7 +24,7 @@ int segs = 0;
 int mins = 0;
 int horas = 0;
 
-int GMTvariable = 0;
+int GMTvariable = -3;
 
 //BOTONES
 #define SWHORAMAS 34 //switch de aumento de horas
